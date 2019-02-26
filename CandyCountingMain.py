@@ -57,60 +57,73 @@ def binary_img_to_rgb(bin_img):
     return rgb_img
 
 
-def detect_blobs(search_img, paint_img):
-    # detect blobs of correct size
-    # get all unique colors in reduced detection image
-    unique_colors = get_unique_colors(search_img)
-    print(unique_colors)
-    # threshold each unique color
+def detect_blobs_one(search_img, paint_img):
+    local_img = cv.cvtColor(search_img, cv.COLOR_BGR2GRAY)
+    # eliminate noise
+    local_img = cv.erode(local_img, np.ones((2, 2)), iterations=10)
+    #local_img = cv.dilate(local_img, np.ones((2, 2)), iterations=32, borderType=cv.BORDER_REFLECT_101)
+    # make the background white and candies dark
+    cv.bitwise_not(local_img, local_img)
+
     # Setup SimpleBlobDetector parameters.
     params = cv.SimpleBlobDetector_Params()
-    # Filter by Area.
-    params.filterByArea = True
-    params.minArea = 500
-    params.maxArea = 1200
     # Filter by Circularity
     params.filterByCircularity = True
-    params.minCircularity = 0.35
+    # circular is good
+    params.minCircularity = 0.7  # a square is 7.85
 
     # Filter by Convexity
     params.filterByConvexity = True
-    params.minConvexity = 0.1
+    # convex is good
+    params.minConvexity = 0.5
 
     # Filter by Inertia
     params.filterByInertia = True
-    params.minInertiaRatio = 0.1
-    i = 0
-    master_contour_list = []
-    for color in unique_colors:
-        tmp = cv.inRange(search_img, color, color)
-        tmp_inv = tmp.__copy__()
-        cv.bitwise_not(tmp, tmp_inv)
+    # high inertia (roundness) is good
+    params.minInertiaRatio = 0.5
 
-        # Create a detector with the parameters
+    # Create a detector with the parameters
+    detector = cv.SimpleBlobDetector_create(params)
+    keypoints = detector.detect(local_img)
+    if len(keypoints) > 0:
+        # sort by size, with the highly constraining circularity parameters, the candies will be preferred,
+        # after sorting, the median and average should agree
+        keypoints.sort(key=lambda x: x.size)
+        # identify the median size of the candies
+        candy_size = keypoints[len(keypoints)//2].size**2
+        print(keypoints)
+
+        # candy size identified repeat analysis with size restriction
+        params.filterByArea = True
+        params.minArea = candy_size - candy_size / 2
+        params.maxArea = candy_size + candy_size / 2
+
+        # relax other constraints
+        params.minCircularity = 0.4
+        params.minConvexity = 0.4
+        params.minInertiaRatio = 0.4
+        # color has been inverted - dilate now erodes
+        local_img = cv.dilate(local_img, np.array([[0, 1, 1, 0], [1, 1, 1, 1], [1, 1, 1, 1], [0, 1, 1, 0]], np.uint8),
+                              iterations=3)
+        #local_img = cv.dilate(local_img, np.array([[0, 1, 1, 0], [1, 1, 1, 1], [1, 1, 1, 1], [0, 1, 1, 0]], np.uint8), iterations=4, borderType=cv.BORDER_REFLECT_101)
+
         detector = cv.SimpleBlobDetector_create(params)
+        keypoints = detector.detect(local_img)
+        print(keypoints)
 
-        print(len(tmp), len(tmp[0]))
-        tmp = binary_img_to_rgb(tmp)
-        tmp = cv.erode(tmp, np.ones((3, 3)))
-        tmp = cv.dilate(tmp, np.ones((3, 3)))
+        # Draw detected blobs as red circles.
+        draw_keypoints(local_img, keypoints, (0, 0, 255))
+        draw_keypoints(paint_img, keypoints, (0, 0, 255))
+        cv.imshow("gray img", local_img)
 
-        keypoints_std = detector.detect(tmp)
-        keypoints_inv = detector.detect(tmp_inv)
-        for keypoints in [keypoints_std, keypoints_inv]:
-            print(len(keypoints))
-            # Draw detected blobs as red circles.
-            draw_keypoints(tmp, keypoints, (0, 0, 255))
-            draw_keypoints(paint_img, keypoints, (0, 0, 255))
-            draw_keypoints(search_img, keypoints, (0, 0, 255))
 
-        #cv.imshow("tmp " + str(i), tmp)
-        #i += 1
+def remove_background(img):
+    # eliminate very large blocks of same color
+    pass
 
 
 def start():
-    img = cv.imread("imagesWOvideo/one.jpg", cv.IMREAD_COLOR)
-    cv.imshow("Original Image", img)
+    img = cv.imread("imagesWOvideo/four.jpg", cv.IMREAD_COLOR)
 
     # find locations of the m&ms
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
@@ -122,22 +135,12 @@ def start():
     v = simplify_img(v, k, 1)
     hsv_ch = [h, s, v]
 
-    # # threshold each channel
-    # for i in range(len(hsv_ch)):
-    #     colors = get_unique_colors(hsv_ch[i], True)
-    #     print(colors)
-    #     _, hsv_ch[i] = cv.threshold(hsv_ch[i], colors[0] + 1, 255, cv.THRESH_BINARY)
-    #     cv.imshow("threshold" + str(i), hsv_ch[i])
-
-    # cv.imshow("h", h)
-    # cv.imshow("s", s)
-    # cv.imshow("v", v)
-
     # convert back to BGR, colors become distorted
     hsv = cv.cvtColor(cv.merge(hsv_ch), cv.COLOR_HSV2BGR)
-    detect_blobs(hsv, img)
-    #detect_blobs_rgb(hsv, img)
+    #detect_blobs(hsv, img)
+    detect_blobs_one(hsv, img)
     cv.imshow("image", hsv)
+    cv.imshow("Original Image", img)
 
     # _, thresh1 = cv.threshold(diff, 30, 255, cv.THRESH_BINARY)
 
