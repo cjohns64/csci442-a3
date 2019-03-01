@@ -123,13 +123,13 @@ def remove_background(img):
 
 
 def start():
-    img = cv.imread("imagesWOvideo/four.jpg", cv.IMREAD_COLOR)
+    img = cv.imread("candyBigSmallerTiny.jpg", cv.IMREAD_COLOR)
 
     # find locations of the m&ms
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
     h, s, v = cv.split(hsv)
     # simplify each channel to 2 values, this becomes 8 combinations once channels are recombined
-    k = 2
+    k = 4
     h = simplify_img(h, k, 1)
     s = simplify_img(s, k, 1)
     v = simplify_img(v, k, 1)
