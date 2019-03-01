@@ -47,20 +47,21 @@ def mouseCall(evt, x, y, flags, pic):
         print("HSV values", pic[y][x], "x, y =", x, y)
 
 
-cv.createTrackbar("max H", "dials", 180, 255, change_slider_maxH)
-cv.createTrackbar("max S", "dials", 255, 255, change_slider_maxS)
-cv.createTrackbar("max V", "dials", 255, 255, change_slider_maxV)
-cv.createTrackbar("min H", "dials", 0, 255, change_slider_minH)
-cv.createTrackbar("min S", "dials", 0, 255, change_slider_minS)
-cv.createTrackbar("min V", "dials", 0, 255, change_slider_minV)
+cv.createTrackbar("max B", "dials", 255, 255, change_slider_maxH)
+cv.createTrackbar("max G", "dials", 255, 255, change_slider_maxS)
+cv.createTrackbar("max R", "dials", 255, 255, change_slider_maxV)
+cv.createTrackbar("min B", "dials", 0, 255, change_slider_minH)
+cv.createTrackbar("min G", "dials", 0, 255, change_slider_minS)
+cv.createTrackbar("min R", "dials", 0, 255, change_slider_minV)
 
 while True:
     # get video info
-    img = cv.imread("imagesWOvideo/one.jpg", cv.IMREAD_COLOR)
-    #img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
+    img = cv.imread("imagesWOvideo/candyBigSmaller.jpg", cv.IMREAD_COLOR)
+    img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
 
     # set HSV image BGR2HLS (NB 87 S>|; B 23 H >|), BGR2LUV (B V><)
-    hsv = cv.cvtColor(img, cv.COLOR_BGR2LUV)
+    #hsv = cv.cvtColor(img, cv.COLOR_BGR2LUV)
+    hsv = img.__copy__()
     cv.setMouseCallback("HSV", mouseCall, hsv)
 
     # create track bars
