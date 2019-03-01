@@ -44,7 +44,7 @@ def change_slider_minV(value):
 # prints out the x and y location of a mouse click
 def mouseCall(evt, x, y, flags, pic):
     if evt == cv.EVENT_LBUTTONDOWN:
-        print("HSV values", pic[y][x], "x, y =", x, y)
+        print("[" + str(pic[y][x][0]) + ", " + str(pic[y][x][1]) + ", " + str(pic[y][x][2]) + "],")
 
 
 cv.createTrackbar("max B", "dials", 255, 255, change_slider_maxH)
@@ -56,7 +56,7 @@ cv.createTrackbar("min R", "dials", 0, 255, change_slider_minV)
 
 while True:
     # get video info
-    img = cv.imread("imagesWOvideo/candyBigSmaller.jpg", cv.IMREAD_COLOR)
+    img = cv.imread("imagesWOvideo/candyBigSmallerTiny.jpg", cv.IMREAD_COLOR)
     img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
 
     # set HSV image BGR2HLS (NB 87 S>|; B 23 H >|), BGR2LUV (B V><)
@@ -72,9 +72,9 @@ while True:
     tracking_img = cv.dilate(tracking_img, np.ones((6, 6)))
 
     # show results
-    cv.imshow("Video", img)
+    #cv.imshow("Video", img)
     cv.imshow("HSV", hsv)
-    cv.imshow("Tracking", tracking_img)
+    #cv.imshow("Tracking", tracking_img)
 
     k = cv.waitKey(1)
     # this is the "esc" key
