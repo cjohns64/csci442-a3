@@ -43,19 +43,14 @@ def set_color_ranges():
     """
     # set orange
     orange_range[0], orange_range[1], orange_range[2] = 61.087, 118.96, 244.83
-
     # set red
     red_range[0], red_range[1], red_range[2] = 105.2, 89.08, 208.44
-
     # set green
     green_range[0], green_range[1], green_range[2] = 128.42, 220.56, 6.94
-
     # set yellow
     yellow_range[0], yellow_range[1], yellow_range[2] = 29.0, 237.96, 247.2
-
     # set blue
     blue_range[0], blue_range[1], blue_range[2] = 253.16, 179.54, 2.78
-
     # set brown
     brown_range[0], brown_range[1], brown_range[2] = 92.11, 84.73, 83.22
 
@@ -80,6 +75,11 @@ def draw_keypoints(img, keypoints, color=(0, 0, 255)):
 
 
 def detect_blobs_one(search_img):
+    """
+    Detects m&m shaped blobs from the binary search image and returns a list of keypoints
+    :param search_img: the binary image to find the m&ms in
+    :return: list of detected blobs as a keypoint list
+    """
     global candy_size, invert, size_thresh
     # eliminate noise
     if len(search_img.shape) > 2 and search_img.shape[2] == 3:
@@ -113,10 +113,10 @@ def detect_blobs_one(search_img):
         # identify the median size of the candies
         candy_size = keypoints[len(keypoints)//2].size**2
 
-        # candy size identified repeat analysis with size restriction
-        params.filterByArea = False
-        # params.minArea = candy_size - candy_size / size_thresh[0]
-        # params.maxArea = candy_size + candy_size / size_thresh[1]
+        # candy size identified, repeat analysis with size restriction
+        params.filterByArea = True
+        params.minArea = candy_size - candy_size / size_thresh[0]
+        params.maxArea = candy_size + candy_size / size_thresh[1]
 
         params.minCircularity = 0
         params.minConvexity = 0
@@ -159,22 +159,28 @@ def threshold_img(img, min_scalars, max_scalars):
 
 
 def coord_out_of_bounds(img, coord):
+    """
+    Checks if the given coordinate 'coord' is out of the bounds of the given image 'img'
+    :param img: image with relevant bounds
+    :param coord: [row, col]
+    :return: True/False
+    """
     return (coord[0] >= len(img) or coord[1] >= len(img[0]) or
             coord[0] < 0 or coord[1] < 0)
 
 
 def fit_to_color(bgr, img, keypt):
     """
-    Identifies colors based off of known spread of values from a sample average
-    increments color count and plots bounding circle
-    :param bgr:
-    :param img:
+    Identifies colors based off of the known spread of values from a sample data set
+    increments color count and plots bounding circles,
+    circle is same color as the detected candy or white if none matched
+    :param bgr: color to categorize
+    :param img: image to draw detection circles on
     :param keypt: keypoint of interest
-    :return:
+    :return: None
     """
     global orange_range, yellow_range, red_range, blue_range, green_range, brown_range
     global count_orange, count_yellow, count_red, count_blue, count_green, count_brown
-
     # blue
     if (np.abs(bgr - blue_range) < np.array([12, 115, 20])).all():
         count_blue += 1
@@ -204,14 +210,20 @@ def fit_to_color(bgr, img, keypt):
 
 
 def count_colors(img, keypoints):
+    """
+    Counts all m&m colors at the given keypoints using the given image
+    :param img: the image to find the colors on
+    :param keypoints: list of keypoints to analyze
+    :return: None
+    """
     # count identified objects
-    n = 0
     size = 1
     for kp in keypoints:
         col, row = kp.pt
 
         avg_color = np.zeros(3)
         i = 0
+        # get average color on the detection area range(+- size, in all directions)
         for x in range(2*size):
             for y in range(2*size):
                 eval_row = int(row - size//2 + x)
@@ -222,50 +234,64 @@ def count_colors(img, keypoints):
                     avg_color += img[eval_row][eval_col]
                     i += 1
         if i > 0:
-            n += 1
+            # detect on average color
             avg_color /= i
             fit_to_color(avg_color, img, kp)
         else:
             print(int(row), int(col))
+
     # print results
-    print(n)
     text = "yellow: {},blue: {},green: {},orange: {},red: {},brown: {}".format(
         count_yellow, count_blue, count_green, count_orange, count_red, count_brown)
     text_arr = text.split(",")
 
+    # print out frequency text
     for i in range(len(text_arr)):
         cv.putText(img, text_arr[i], (10, 20+22*i), cv.FONT_HERSHEY_PLAIN, 1.5, (240, 240, 240), thickness=2, lineType=5)
 
 
 def detect_candy(file, window_name):
-    global candy_size, pre_scalars, pst_scalars
+    """
+    Finds, circles, and counts the number of of m&ms in the given file
+    :param file: location of image to search
+    :param window_name: name of the results window
+    :return: None
+    """
+    global candy_size, brown_range
     candy_size = 0
     img = cv.imread(file, cv.IMREAD_COLOR)
-    img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
+    img = cv.rotate(img, cv.ROTATE_90_COUNTERCLOCKWISE)
     blue_green = img.__copy__()
     yellow_orange = img.__copy__()
+    brown = img.__copy__()
 
-    # find locations of the m&ms (not brown)
-    min_BG = np.array([0, 137, 0], np.uint8)
-    max_BG = np.array([255, 255, 146], np.uint8)
-    tracking_BG = threshold_img(blue_green, min_BG, max_BG)
-    #tracking_BG = cv.dilate(tracking_BG, np.ones((2, 2)), iterations=2)
+    # find blue-green m&ms
+    min_blugre = np.array([0, 137, 0], np.uint8)
+    max_blugre = np.array([255, 255, 146], np.uint8)
+    tracking_blugre = threshold_img(blue_green, min_blugre, max_blugre)
 
-    # find locations of the brown m&ms
-    min_YO = np.array([0, 0, 205], np.uint8)
-    max_YO = np.array([255, 255, 255], np.uint8)
-    tracking_YO = threshold_img(yellow_orange, min_YO, max_YO)
-    tracking_YO = cv.dilate(tracking_YO, np.ones((2, 2)), iterations=1)
-    cv.imshow("T YO", tracking_YO)
-    cv.imshow("T BG", tracking_BG)
+    # find yellow-orange m&ms
+    min_yelorg = np.array([0, 0, 205], np.uint8)
+    max_yelorg = np.array([255, 255, 255], np.uint8)
+    tracking_yelorg = threshold_img(yellow_orange, min_yelorg, max_yelorg)
+    tracking_yelorg = cv.dilate(tracking_yelorg, np.ones((2, 2)), iterations=1)
+
+    # find red m&ms
+    tracking_red = threshold_img(brown, red_range-35, red_range+40)
+    tracking_red = cv.erode(tracking_red, np.ones((2, 2)), iterations=9)
+    tracking_red = cv.dilate(tracking_red, np.ones((2, 2)), iterations=5)
 
     # get keypoints
-    keypoints_BG = detect_blobs_one(tracking_BG)
-    keypoints_YO = detect_blobs_one(tracking_YO)
-    keypoints = merge_keypoints(keypoints_BG, keypoints_YO)
+    keypoints_blugre = detect_blobs_one(tracking_blugre)
+    keypoints_yelorg = detect_blobs_one(tracking_yelorg)
+    keypoints_red = detect_blobs_one(tracking_red)
 
-    # draw_keypoints(img, keypoints_BG)
-    # draw_keypoints(img, keypoints_YO)
+    # draw_keypoints(brown, keypoints_red, (0, 0, 240))
+    # cv.imshow("red kp", brown)
+    # cv.imshow("red tr", tracking_red)
+    keypoints = merge_keypoints(keypoints_blugre, keypoints_red)
+    keypoints = merge_keypoints(keypoints, keypoints_yelorg)
+
     # count and print the results
     count_colors(img, keypoints)
 
@@ -273,7 +299,7 @@ def detect_candy(file, window_name):
 
 
 set_color_ranges()
-detect_candy("imagesWOvideo/candyBigSmallerTiny.jpg", "All")
+detect_candy("imagesWOvideo/candyBigSmallerTiny.jpg", "Detection")
 
 cv.waitKey(0)
 cv.destroyAllWindows()
