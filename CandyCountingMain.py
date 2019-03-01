@@ -2,10 +2,7 @@ import numpy as np
 import cv2 as cv
 
 candy_size = 0
-cv.namedWindow("dials")
-pre_scalars = np.zeros(3)
-pst_scalars = np.zeros(3)
-size_thresh = np.ones(2)
+size_thresh = np.array([1.0, 1.0])
 invert = True
 count_orange = 0
 count_yellow = 0
@@ -24,102 +21,29 @@ brown_range = np.zeros([2, 3], np.uint8)
 
 def set_color_ranges():
     global orange_range, yellow_range, red_range, blue_range, green_range, brown_range
-    # set mins BGR
+    # set orange
     orange_range[0][0], orange_range[0][1], orange_range[0][2] = 15, 100, 230
-    yellow_range[0][0], yellow_range[0][1], yellow_range[0][2] = 10, 200, 215
-    red_range[0][0], red_range[0][1], red_range[0][2] = 50, 40, 160
-    blue_range[0][0], blue_range[0][1], blue_range[0][2] = 240, 130, 0
-    green_range[0][0], green_range[0][1], green_range[0][2] = 40, 120, 0
-    brown_range[0][0], brown_range[0][1], brown_range[0][2] = 20, 20, 30
-
-    # set maxes BGR
     orange_range[1][0], orange_range[1][1], orange_range[1][2] = 80, 120, 255
-    yellow_range[1][0], yellow_range[1][1], yellow_range[1][2] = 160, 255, 255
+
+    # set red
+    red_range[0][0], red_range[0][1], red_range[0][2] = 50, 40, 160
     red_range[1][0], red_range[1][1], red_range[1][2] = 140, 130, 255
-    blue_range[1][0], blue_range[1][1], blue_range[1][2] = 255, 210, 10
+
+    # set green
+    green_range[0][0], green_range[0][1], green_range[0][2] = 40, 120, 0
     green_range[1][0], green_range[1][1], green_range[1][2] = 210, 255, 50
+
+    # set yellow
+    yellow_range[0][0], yellow_range[0][1], yellow_range[0][2] = 70, 230, 215
+    yellow_range[1][0], yellow_range[1][1], yellow_range[1][2] = 160, 255, 255
+
+    # set blue
+    blue_range[0][0], blue_range[0][1], blue_range[0][2] = 250, 200, 0
+    blue_range[1][0], blue_range[1][1], blue_range[1][2] = 255, 210, 10
+
+    # set brown
+    brown_range[0][0], brown_range[0][1], brown_range[0][2] = 20, 20, 30
     brown_range[1][0], brown_range[1][1], brown_range[1][2] = 180, 160, 140
-
-
-def change_slider_preCir(val):
-    pre_scalars[0] = val/100
-def change_slider_preCon(val):
-    pre_scalars[1] = val/100
-def change_slider_preInr(val):
-    pre_scalars[2] = val/100
-def change_slider_pstCir(val):
-    pst_scalars[0] = val/100
-def change_slider_pstCon(val):
-    pst_scalars[1] = val/100
-def change_slider_pstInr(val):
-    pst_scalars[2] = val/100
-def slider_upper_scale(val):
-    size_thresh[1] = val/100
-    if size_thresh[1] <= 1/100:
-        size_thresh[1] = 1/100
-def slider_lower_scale(val):
-    size_thresh[0] = val/100
-    if size_thresh[0] <= 1/100:
-        size_thresh[0] = 1/100
-def invert_mask(val):
-    global invert
-    if val > 50:
-        invert = True
-    else:
-        invert = False
-
-cv.createTrackbar("Pre Min Cir", "dials", 0, 100, change_slider_preCir)
-cv.createTrackbar("Pre Min Con", "dials", 0, 100, change_slider_preCon)
-cv.createTrackbar("Pre Min Inr", "dials", 0, 100, change_slider_preInr)
-cv.createTrackbar("Pst Min Cir", "dials", 0, 100, change_slider_pstCir)
-cv.createTrackbar("Pst Min Con", "dials", 0, 100, change_slider_pstCon)
-cv.createTrackbar("Pst Min Inr", "dials", 0, 100, change_slider_pstInr)
-cv.createTrackbar("min Size Thr", "dials", 1, 200, slider_lower_scale)
-cv.createTrackbar("max Size Thr", "dials", 1, 200, slider_upper_scale)
-cv.createTrackbar("Invert Mask", "dials", 0, 100, invert_mask)
-
-
-def simplify_img(img, channels, depth=3):
-    """
-    Reduces the number of unique colors in the given image
-    :param img: the image to process (non-destructive)
-    :param channels: the number of unique colors to keep
-    :param depth: how many color channels the result should have
-    :return: the resultant image
-    """
-    blur = cv.GaussianBlur(img, (7, 7), cv.BORDER_DEFAULT)
-    Z = blur.reshape((-1, depth))
-
-    # convert to np.float32
-    Z = np.float32(Z)
-
-    # define criteria, number of clusters(K) and apply kmeans()
-    criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    ret, label, center = cv.kmeans(Z, channels, None, criteria, 10, cv.KMEANS_RANDOM_CENTERS)
-
-    # Now convert back into uint8, and make original image
-    center = np.uint8(center)
-    res = center[label.flatten()]
-    res2 = res.reshape(img.shape)
-    return res2
-
-
-def get_unique_colors(img, is_non_color=False):
-    # get all unique colors in the input image
-    if is_non_color:
-        x = 0
-        y = 5000
-        for row in img:
-            tmp = max(row)
-            if tmp > x:
-                x = tmp
-            tmp = min(row)
-            if tmp < y:
-                y = tmp
-        return [y, x]
-    else:
-        all_rgb_codes = img.reshape(-1, img.shape[-1])
-        return np.unique(all_rgb_codes, axis=0)
 
 
 def draw_keypoints(img, keypoints, color=(0, 0, 255)):
@@ -141,7 +65,7 @@ def draw_keypoints(img, keypoints, color=(0, 0, 255)):
         cv.circle(img, (int(x), int(y)), 12, color, 3)
 
 
-def detect_blobs_one(search_img, pre_filter_cci, post_filter_cci):
+def detect_blobs_one(search_img):
     global candy_size, invert, size_thresh
     # eliminate noise
     if len(search_img.shape) > 2 and search_img.shape[2] == 3:
@@ -149,30 +73,21 @@ def detect_blobs_one(search_img, pre_filter_cci, post_filter_cci):
     else:
         local_img = search_img.__copy__()
     if invert:
-        # local_img = cv.dilate(local_img, np.array([[0, 1, 1, 0], [1, 1, 1, 1], [1, 1, 1, 1], [0, 1, 1, 0]], np.uint8),
-        #                       iterations=3)
         local_img = cv.dilate(local_img, np.ones((6, 6)), iterations=2)
     else:
-        # local_img = cv.erode(local_img, np.array([[0, 1, 1, 0], [1, 1, 1, 1], [1, 1, 1, 1], [0, 1, 1, 0]], np.uint8),
-        #                      iterations=3)
         local_img = cv.erode(local_img, np.ones((6, 6)), iterations=2)
 
-    # Setup SimpleBlobDetector parameters.
+    # setup SimpleBlobDetector parameters.
     params = cv.SimpleBlobDetector_Params()
-    # Filter by Circularity
+    # filter by circularity
     params.filterByCircularity = True
-    # circular is good
-    params.minCircularity = pre_filter_cci[0]  # a square is 7.85
-
-    # Filter by Convexity
+    params.minCircularity = 0  # a square is 7.85
+    # filter by convexity
     params.filterByConvexity = True
-    # convex is good
-    params.minConvexity = pre_filter_cci[1]
-
-    # Filter by Inertia
+    params.minConvexity = 0
+    # filter by inertia
     params.filterByInertia = True
-    # high inertia (roundness) is good
-    params.minInertiaRatio = pre_filter_cci[2]
+    params.minInertiaRatio = 0
 
     # Create a detector with the parameters
     detector = cv.SimpleBlobDetector_create(params)
@@ -189,37 +104,22 @@ def detect_blobs_one(search_img, pre_filter_cci, post_filter_cci):
         params.minArea = candy_size - candy_size / size_thresh[0]
         params.maxArea = candy_size + candy_size / size_thresh[1]
 
-        # relax other constraints
-        params.minCircularity = post_filter_cci[0]
-        params.minConvexity = post_filter_cci[1]
-        params.minInertiaRatio = post_filter_cci[2]
-
+        params.minCircularity = 0
+        params.minConvexity = 0
+        params.minInertiaRatio = 0
         detector = cv.SimpleBlobDetector_create(params)
         keypoints = detector.detect(local_img)
 
     return keypoints
 
 
-def merge_keypoints(first_set, second_set, area):
+def merge_keypoints(first_set, second_set):
     """
     Merges the given numpy arrays of keypoints and dose not add keypoints that overlap
     :param first_set:
     :param second_set:
-    :param area: area of a candy
     :return: numpy array of non-duplicate keypoints
     """
-    # candy_len = np.sqrt(area)
-    # local_set = [x for x in first_set]
-    # for point in second_set:
-    #     append = True
-    #     point = np.array(point.pt)
-    #     for com_point in first_set:
-    #         com_point = np.array(com_point.pt)
-    #         if (point - com_point <= candy_len).all():
-    #             append = False
-    #             break
-    #     if append:
-    #         np.append(local_set, point)
     local_set = np.append(first_set, second_set)
     return local_set
 
@@ -252,30 +152,33 @@ def coord_out_of_bounds(img, coord):
 def fit_to_color(bgr, img, keypt):
     global orange_range, yellow_range, red_range, blue_range, green_range, brown_range
     global count_orange, count_yellow, count_red, count_blue, count_green, count_brown
+    delta = 5
     # blue
-    if sum(bgr - blue_range[0]) < 10 or sum(blue_range[1] - bgr) < 10:
+    if np.abs(sum(bgr - blue_range[0])) < delta or np.abs(sum(blue_range[1] - bgr)) < delta:
         count_blue += 1
         draw_keypoints(img, keypt, (250, 0, 0))
     # orange
-    elif sum(bgr - orange_range[0]) < 10 or sum(orange_range[1] - bgr) < 10:
+    elif np.abs(sum(bgr - orange_range[0])) < delta or np.abs(sum(orange_range[1] - bgr)) < delta:
         count_orange += 1
         draw_keypoints(img, keypt, (0, 140, 250))
     # yellow
-    elif sum(bgr - yellow_range[0]) < 10 or sum(yellow_range[1] - bgr) < 10:
+    elif np.abs(sum(bgr - yellow_range[0])) < delta or np.abs(sum(yellow_range[1] - bgr)) < delta:
         count_yellow += 1
         draw_keypoints(img, keypt, (0, 250, 250))
     # red
-    elif sum(bgr - red_range[0]) < 10 or sum(red_range[1] - bgr) < 10:
+    elif np.abs(sum(bgr - red_range[0])) < delta or np.abs(sum(red_range[1] - bgr)) < delta:
         count_red += 1
         draw_keypoints(img, keypt, (0, 0, 250))
     # green
-    elif sum(bgr - green_range[0]) < 10 or sum(green_range[1] - bgr) < 10:
+    elif np.abs(sum(bgr - green_range[0])) < delta or np.abs(sum(green_range[1] - bgr)) < delta:
         count_green += 1
         draw_keypoints(img, keypt, (0, 250, 0))
     # brown
-    elif sum(bgr - brown_range[0]) < 10 or sum(brown_range[1] - bgr) < 10:
+    elif np.abs(sum(bgr - brown_range[0])) < delta or np.abs(sum(brown_range[1] - bgr)) < delta:
         count_brown += 1
         draw_keypoints(img, keypt, (120, 140, 160))
+    else:
+        draw_keypoints(img, keypt, (255, 255, 255))
 
 
 def count_colors(img, keypoints):
@@ -327,9 +230,9 @@ def detect_candy(file, window_name):
     tracking_YO = cv.dilate(tracking_YO, np.ones((2, 2)), iterations=1)
 
     # get keypoints
-    keypoints_BG = detect_blobs_one(tracking_BG, pre_scalars, pst_scalars)
-    keypoints_YO = detect_blobs_one(tracking_YO, pre_scalars, pst_scalars)
-    keypoints = merge_keypoints(keypoints_BG, keypoints_YO, candy_size)
+    keypoints_BG = detect_blobs_one(tracking_BG)
+    keypoints_YO = detect_blobs_one(tracking_YO)
+    keypoints = merge_keypoints(keypoints_BG, keypoints_YO)
 
     # draw detected blobs
     # draw_keypoints(img, keypoints)
@@ -339,12 +242,12 @@ def detect_candy(file, window_name):
 
 
 set_color_ranges()
-# print("orange diff", sum(orange_range[1] - orange_range[0]))
-# print("yellow diff", sum(yellow_range[1] - yellow_range[0]))
-# print("red diff", sum(red_range[1] - red_range[0]))
-# print("blue diff", sum(blue_range[1] - blue_range[0]))
-# print("green diff", sum(green_range[1] - green_range[0]))
-# print("brown diff", sum(brown_range[1] - brown_range[0]))
+print("orange diff", sum(orange_range[1] - orange_range[0]))
+print("yellow diff", sum(yellow_range[1] - yellow_range[0]))
+print("red diff", sum(red_range[1] - red_range[0]))
+print("blue diff", sum(blue_range[1] - blue_range[0]))
+print("green diff", sum(green_range[1] - green_range[0]))
+print("brown diff", sum(brown_range[1] - brown_range[0]))
 
 detect_candy("imagesWOvideo/candyBigSmallerTiny.jpg", "All")
 
