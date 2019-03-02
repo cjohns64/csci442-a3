@@ -1,3 +1,4 @@
+# Cory Johns
 import numpy as np
 import cv2 as cv
 
@@ -130,11 +131,33 @@ def detect_blobs_one(search_img):
 def merge_keypoints(first_set, second_set):
     """
     Merges the given numpy arrays of keypoints and dose not add keypoints that overlap
-    :param first_set:
-    :param second_set:
+    :param first_set: keypoint set 1
+    :param second_set: keypoint set 2
     :return: numpy array of non-duplicate keypoints
     """
-    local_set = np.append(first_set, second_set)
+    # don't add 2 points within 10 pix
+    candy_len = 10
+    print(len(first_set) + len(second_set), type(first_set[0]), type(second_set[0]))
+    local_set = [x for x in first_set]
+    # compare set 2 to set 1
+    for point in second_set:
+        append = True
+        if type(point) == cv.KeyPoint:
+            l_point = np.array(point.pt)
+        else:
+            l_point = point
+        # check against set 2
+        for com_point in first_set:
+            if type(com_point) == cv.KeyPoint:
+                l_com_point = np.array(com_point.pt)
+            else:
+                l_com_point = com_point
+            if (np.abs(l_point - l_com_point) <= candy_len).all():
+                append = False
+                break
+        if append:
+            local_set.append(point)
+    # return merged lists of keypoints
     return local_set
 
 
@@ -263,7 +286,7 @@ def detect_candy(file, window_name):
     img = cv.rotate(img, cv.ROTATE_90_COUNTERCLOCKWISE)
     blue_green = img.__copy__()
     yellow_orange = img.__copy__()
-    brown = img.__copy__()
+    red = img.__copy__()
 
     # find blue-green m&ms
     min_blugre = np.array([0, 137, 0], np.uint8)
@@ -277,7 +300,7 @@ def detect_candy(file, window_name):
     tracking_yelorg = cv.dilate(tracking_yelorg, np.ones((2, 2)), iterations=1)
 
     # find red m&ms
-    tracking_red = threshold_img(brown, red_range-35, red_range+40)
+    tracking_red = threshold_img(red, red_range-35, red_range+40)
     tracking_red = cv.erode(tracking_red, np.ones((2, 2)), iterations=9)
     tracking_red = cv.dilate(tracking_red, np.ones((2, 2)), iterations=5)
 
@@ -286,9 +309,6 @@ def detect_candy(file, window_name):
     keypoints_yelorg = detect_blobs_one(tracking_yelorg)
     keypoints_red = detect_blobs_one(tracking_red)
 
-    # draw_keypoints(brown, keypoints_red, (0, 0, 240))
-    # cv.imshow("red kp", brown)
-    # cv.imshow("red tr", tracking_red)
     keypoints = merge_keypoints(keypoints_blugre, keypoints_red)
     keypoints = merge_keypoints(keypoints, keypoints_yelorg)
 
